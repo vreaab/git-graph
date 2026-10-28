@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Commit graph</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0d0d12}
+a{color:#5eead4}a:hover{color:#99f6e4}
+.ic{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.edge{fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;transition:opacity .2s}
+.edge-wip{fill:none;stroke-width:1.5;stroke-dasharray:3 3}
+.link{fill:none;stroke-width:1.5;transition:opacity .2s}
+.bar{transition:opacity .2s}
+.nd{transition:opacity .2s}
+.nd-face{stroke-width:1.5}
+.nd-ring{fill:none;stroke-width:1.25}
+.nd-wip{fill:#0d0d12;stroke-width:1.5;stroke-dasharray:2.5 2.5}
+.av{text-anchor:middle;dominant-baseline:central;font-weight:700;font-family:'JetBrains Mono',ui-monospace,monospace}
+.btn-reset{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;text-align:left;cursor:pointer}
+.row:hover{background:rgba(255,255,255,0.035)}
+.side-item:hover{background:rgba(255,255,255,0.05)}
+.chip:hover{color:#f4f4f5;border-color:rgba(255,255,255,0.22)}
+.icon-btn:hover{color:#f4f4f5;background:rgba(255,255,255,0.08)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 1s linear infinite}
+.ci-chip:hover{filter:brightness(1.2)}
+.wip-input::placeholder{color:#8b8b96}
+.wip-input:focus{outline:none;border-color:rgba(45,212,191,0.6)}
+button:focus-visible{outline:2px solid #2dd4bf;outline-offset:-2px}
+.scroll::-webkit-scrollbar{width:8px;height:8px}
+.scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:4px}
+@media (max-width: 900px){
+.app{height:auto !important;min-height:0 !important}
+.graph-scroll{height:520px !important;flex:none !important}
+}
+</style>
+</helmet>
+<div class="app" style="height: 100vh; min-height: 600px; display: flex; flex-wrap: wrap; align-items: stretch; background: #0d0d12; color: #e4e4e7; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow: hidden;">
+
+  <!-- LEFT SIDEBAR -->
+  <aside style="flex: 1 1 200px; max-width: 100%; display: flex; flex-direction: column; background: #0a0a0f; border-right: 1px solid rgba(255,255,255,0.06); min-width: 0;">
+    <div style="height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;">
+      <svg class="ic" width="15" height="15" viewBox="0 0 24 24" style="color: #2dd4bf;" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.250-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.640-.5-5.360-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path><path d="M9 18c-4.51 2-5-2-7-2"></path></svg>
+      <span style="font-weight: 700; color: #f4f4f5; font-size: 12px;">ui-components</span>
+    </div>
+
+    <div class="scroll" style="flex: 1; overflow-y: auto; padding: 8px 6px; display: flex; flex-direction: column; gap: 10px;">
+      <section style="display: flex; flex-direction: column; gap: 2px;">
+        <button class="btn-reset" onClick="{{ toggleBranches }}" aria-expanded="{{ branchesOpenStr }}" style="display: flex; align-items: center; gap: 4px; padding: 4px 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8b8b96;">
+          <svg class="ic" width="14" height="14" viewBox="0 0 24 24" style="{{ branchesChevron }}" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+          Branches
+          <span style="margin-left: auto; font-weight: 500; letter-spacing: 0;">4</span>
+        </button>
+        <sc-if value="{{ branchesOpen }}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{ branchItems }}" as="b" hint-placeholder-count="4">
+            <button class="btn-reset side-item" onClick="{{ b.select }}" onMouseEnter="{{ b.enter }}" onMouseLeave="{{ b.leave }}" style="display: flex; align-items: center; gap: 8px; min-height: 24px; padding: 0 6px; border-radius: 4px; color: #d4d4d8; font-size: 12px;">
+              <svg class="ic" width="13" height="13" viewBox="0 0 24 24" style="color: {{ b.color }};" aria-hidden="true"><line x1="6" x2="6" y1="3" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;">{{ b.name }}</span>
+              <svg class="ic {{ b.ci.cls }}" width="12" height="12" viewBox="0 0 24 24" role="img" aria-label="{{ b.ci.aria }}" style="color: {{ b.ci.color }};"><title>{{ b.ci.aria }}</title><path d="{{ b.ci.d }}"></path></svg>
+              <sc-if value="{{ b.isHead }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: #2dd4bf; border: 1px solid rgba(45,212,191,0.35); border-radius: 3px; padding: 0 4px;">HEAD</span>
+              </sc-if>
+            </button>
+          </sc-for>
+        </sc-if>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 2px;">
+        <button class="btn-reset" onClick="{{ toggleTags }}" aria-expanded="{{ tagsOpenStr }}" style="display: flex; align-items: center; gap: 4px; padding: 4px 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8b8b96;">
+          <svg class="ic" width="14" height="14" viewBox="0 0 24 24" style="{{ tagsChevron }}" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+          Tags
+          <span style="margin-left: auto; font-weight: 500; letter-spacing: 0;">2</span>
+        </button>
+        <sc-if value="{{ tagsOpen }}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{ tagItems }}" as="t" hint-placeholder-count="2">
+            <button class="btn-reset side-item" onClick="{{ t.select }}" style="display: flex; align-items: center; gap: 8px; min-height: 24px; padding: 0 6px; border-radius: 4px; color: #d4d4d8; font-size: 12px;">
+              <svg class="ic" width="13" height="13" viewBox="0 0 24 24" style="color: #8b8b96;" aria-hidden="true"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"></path><circle cx="7.5" cy="7.5" r=".5"></circle></svg>
+              <span style="flex: 1;">{{ t.name }}</span>
+              <span style="font-size: 10px; color: #8b8b96;">{{ t.short }}</span>
+            </button>
+          </sc-for>
+        </sc-if>
+      </section>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; min-height: 0; height: 100%;">
+    <header style="min-height: 36px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); background: #0b0b10; flex-shrink: 0; box-sizing: border-box;">
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <span style="color: #8b8b96;">Current branch</span>
+        <span style="display: inline-flex; align-items: center; gap: 5px; padding: 1px 7px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: #f4f4f5; font-weight: 500;">
+          <svg class="ic" width="12" height="12" viewBox="0 0 24 24" style="color: #2dd4bf;" aria-hidden="true"><line x1="6" x2="6" y1="3" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>
+          main
+        </span>
+        <span style="color: #8b8b96;">12 commits</span>
+        <sc-if value="{{ ciSummary.hasRunning }}" hint-placeholder-val="{{ true }}">
+          <button class="btn-reset ci-chip" onClick="{{ ciSummary.goRunning }}" style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 4px; border: 1px solid rgba(251,191,36,0.35); background: rgba(251,191,36,0.08); color: #fbbf24; font-size: 11px; font-weight: 500;">
+            <svg class="ic spin" width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56"></path></svg>
+            {{ ciSummary.runningText }}
+          </button>
+        </sc-if>
+        <sc-if value="{{ ciSummary.hasFailing }}" hint-placeholder-val="{{ true }}">
+          <button class="btn-reset ci-chip" onClick="{{ ciSummary.goFailing }}" style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 4px; border: 1px solid rgba(248,113,113,0.35); background: rgba(248,113,113,0.08); color: #f87171; font-size: 11px; font-weight: 500;">
+            <svg class="ic" width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18 M9.5 9.5l5 5 M14.5 9.5l-5 5"></path></svg>
+            {{ ciSummary.failingText }}
+          </button>
+        </sc-if>
+      </div>
+    </header>
+
+    <div class="scroll graph-scroll" style="flex: 1; min-height: 0; overflow: auto;">
+      <div style="min-width: {{ minW }}px; position: relative;">
+        <!-- column headers -->
+        <div style="position: sticky; top: 0; z-index: 4; height: 26px; display: grid; grid-template-columns: {{ cols }}; align-items: center; background: #0d0d12; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8b96;">
+          <span style="padding-left: 10px; border-right: 1px solid rgba(255,255,255,0.06);">Branch / Tag</span>
+          <span style="padding-left: 10px; border-right: 1px solid rgba(255,255,255,0.06);">Graph</span>
+          <span style="padding-left: 10px;">Commit message</span>
+          <span style="{{ metaHide }}">Commit</span>
+          <span style="{{ metaHide }}">Author</span>
+          <span style="padding-right: 32px; {{ metaHide }}">Date</span>
+          <button class="btn-reset icon-btn" onClick="{{ toggleMeta }}" aria-label="{{ metaLabel }}" aria-pressed="{{ metaPressed }}" style="position: absolute; right: 4px; top: 2px; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #8b8b96;">
+            <svg class="ic" width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
+        </div>
+
+        <!-- rows + graph -->
+        <div style="position: relative;">
+          <svg width="{{ svgWidth }}" height="{{ graphHeight }}" style="position: absolute; top: 0; left: 0; pointer-events: none; z-index: 2; overflow: visible;" aria-hidden="true">
+            <sc-for list="{{ bars }}" as="b" hint-placeholder-count="12">
+              <g class="bar" style="opacity: {{ b.op }};">
+                <rect x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}" fill="{{ b.color }}" style="opacity: {{ b.fillOp }};"></rect>
+                <rect x="{{ b.capX }}" y="{{ b.y }}" width="2" height="{{ b.h }}" fill="{{ b.color }}"></rect>
+              </g>
+            </sc-for>
+            <sc-for list="{{ links }}" as="l" hint-placeholder-count="5">
+              <path class="link" d="{{ l.d }}" stroke="{{ l.color }}" style="opacity: {{ l.op }};"></path>
+            </sc-for>
+            <path class="edge-wip" d="{{ wip.edge }}" stroke="{{ wip.color }}"></path>
+            <sc-for list="{{ edges }}" as="e" hint-placeholder-count="14">
+              <path class="edge" d="{{ e.d }}" stroke="{{ e.color }}" style="opacity: {{ e.op }};"></path>
+            </sc-for>
+            <circle class="nd-wip" cx="{{ wip.cx }}" cy="{{ wip.cy }}" r="{{ wip.r }}" stroke="{{ wip.color }}"></circle>
+            <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="12">
+              <g class="nd" style="opacity: {{ n.op }};">
+                <circle class="nd-ring" cx="{{ n.cx }}" cy="{{ n.cy }}" r="{{ n.ringR }}" stroke="{{ n.color }}" style="opacity: {{ n.ringOp }};"></circle>
+                <circle cx="{{ n.cx }}" cy="{{ n.cy }}" r="{{ n.r }}" fill="#0d0d12"></circle>
+                <circle class="nd-face" cx="{{ n.cx }}" cy="{{ n.cy }}" r="{{ n.r }}" fill="{{ n.fill }}" stroke="{{ n.color }}"></circle>
+                <text class="av" x="{{ n.cx }}" y="{{ n.cy }}" fill="{{ n.color }}" style="font-size: {{ n.fs }}px; opacity: {{ n.textOp }};">{{ n.initials }}</text>
+              </g>
+            </sc-for>
+          </svg>
+
+          <!-- WIP row -->
+          <div style="{{ wip.rowStyle }}">
+            <span></span>
+            <span></span>
+            <span style="display: flex; align-items: center; gap: 12px; padding: 0 12px 0 10px; min-width: 0;">
+              <input class="wip-input" aria-label="Commit summary for uncommitted changes" placeholder="// WIP" style="width: 180px; height: 20px; box-sizing: border-box; padding: 0 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; color: #e4e4e7; font: inherit; font-size: 11px;">
+              <span style="display: inline-flex; align-items: center; gap: 4px; color: #d4d4d8;" title="Modified files">
+                <svg class="ic" width="12" height="12" viewBox="0 0 24 24" style="color: #fbbf24;" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path></svg>
+                3
+              </span>
+              <span style="display: inline-flex; align-items: center; gap: 4px; color: #d4d4d8;" title="Added files">
+                <svg class="ic" width="12" height="12" viewBox="0 0 24 24" style="color: #4ade80;" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+                2
+              </span>
+            </span>
+          </div>
+
+          <sc-for list="{{ rows }}" as="c" hint-placeholder-count="12">
+            <button class="btn-reset row" onClick="{{ c.select }}" onMouseEnter="{{ c.enter }}" onMouseLeave="{{ c.leave }}" aria-pressed="{{ c.pressed }}" style="{{ c.rowStyle }}">
+              <span style="position: relative; z-index: 3; display: flex; align-items: center; gap: 4px; min-width: 0; padding-left: 8px; overflow: hidden;">
+                <sc-for list="{{ c.refs }}" as="r" hint-placeholder-count="0">
+                  <span style="{{ r.style }}">
+                    <sc-if value="{{ r.isHead }}" hint-placeholder-val="{{ false }}">
+                      <svg class="ic" width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+                    </sc-if>
+                    <sc-if value="{{ r.isTag }}" hint-placeholder-val="{{ false }}">
+                      <svg class="ic" width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"></path></svg>
+                    </sc-if>
+                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;">{{ r.label }}</span>
+                  </span>
+                </sc-for>
+              </span>
+              <span></span>
+              <span style="display: flex; align-items: baseline; gap: 10px; min-width: 0; padding: 0 12px 0 10px; overflow: hidden; white-space: nowrap;">
+                <svg class="ic {{ c.ci.cls }}" width="12" height="12" viewBox="0 0 24 24" role="img" aria-label="{{ c.ci.aria }}" style="color: {{ c.ci.color }}; align-self: center;"><title>{{ c.ci.aria }}</title><path d="{{ c.ci.d }}"></path></svg>
+                <span style="{{ c.msgStyle }}">{{ c.message }}</span>
+                <span style="flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: #8b8b96;">{{ c.body }}</span>
+              </span>
+              <span style="color: #8b8b96; font-size: 11px; {{ metaHide }}">{{ c.id }}</span>
+              <span style="color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 12px; {{ metaHide }}">{{ c.author }}</span>
+              <span style="color: #8b8b96; padding-right: 12px; white-space: nowrap; {{ metaHide }}">{{ c.date }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- DETAILS -->
+  <sc-if value="{{ detailsOpen }}" hint-placeholder-val="{{ true }}">
+    <aside style="flex: 1 1 260px; max-width: 100%; display: flex; flex-direction: column; background: #0a0a0f; border-left: 1px solid rgba(255,255,255,0.06); min-width: 0;">
+      <div style="height: 36px; display: flex; align-items: center; justify-content: space-between; padding: 0 6px 0 12px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;">
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #a1a1aa;">
+          <svg class="ic" width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><line x1="3" x2="9" y1="12" y2="12"></line><line x1="15" x2="21" y1="12" y2="12"></line></svg>
+          Commit details
+        </span>
+        <button class="btn-reset icon-btn" onClick="{{ closeDetails }}" aria-label="Close details" style="width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #8b8b96;">
+          <svg class="ic" width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="scroll" style="flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <span style="font-size: 14px; font-weight: 700; color: #f4f4f5;"><span style="color: #2dd4bf;">#</span> {{ sel.id }}</span>
+          <button class="btn-reset icon-btn" onClick="{{ copyId }}" aria-label="Copy commit hash" style="height: 22px; display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); color: #a1a1aa; font-size: 11px;">
+            <svg class="ic" width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
+            {{ copyLabel }}
+          </button>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);">
+          <span style="{{ sel.avatarStyle }}">{{ sel.initials }}</span>
+          <span style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+            <span style="font-weight: 700; color: #f4f4f5;">{{ sel.author }}</span>
+            <span style="display: flex; align-items: center; gap: 5px; color: #8b8b96; font-size: 11px;">
+              <svg class="ic" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              {{ sel.date }}
+            </span>
+          </span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8b96;">Message</span>
+          <div style="padding: 8px 10px; border-radius: 6px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); line-height: 1.5; display: flex; flex-direction: column; gap: 6px;">
+            <p style="margin: 0; color: #f4f4f5; font-weight: 700;">{{ sel.message }}</p>
+            <sc-if value="{{ sel.hasBody }}" hint-placeholder-val="{{ false }}">
+              <p style="margin: 0; color: #a1a1aa;">{{ sel.body }}</p>
+            </sc-if>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="display: flex; align-items: center; justify-content: space-between; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8b96;">
+            Checks
+            <span style="letter-spacing: 0; text-transform: none; font-weight: 500; font-size: 11px; color: {{ sel.ciColor }};">{{ sel.ciText }}</span>
+          </span>
+          <div style="display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden;">
+            <sc-for list="{{ sel.runs }}" as="r" hint-placeholder-count="2">
+              <div style="display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.02);">
+                <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                  <svg class="ic {{ r.cls }}" width="14" height="14" viewBox="0 0 24 24" role="img" aria-label="{{ r.aria }}" style="color: {{ r.color }};"><title>{{ r.aria }}</title><path d="{{ r.d }}"></path></svg>
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;">
+                    <span style="color: #e4e4e7; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ r.name }}</span>
+                    <span style="color: #8b8b96; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ r.meta }}</span>
+                  </span>
+                  <sc-if value="{{ r.canRerun }}" hint-placeholder-val="{{ false }}">
+                    <button class="btn-reset chip" onClick="{{ r.rerun }}" style="display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.12); color: #d4d4d8; font-size: 11px; flex-shrink: 0;">
+                      <svg class="ic" width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                      Re-run
+                    </button>
+                  </sc-if>
+                </div>
+                <sc-if value="{{ r.isRunning }}" hint-placeholder-val="{{ false }}">
+                  <div style="height: 3px; border-radius: 2px; background: rgba(255,255,255,0.08); overflow: hidden;">
+                    <div style="{{ r.barStyle }}"></div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8b96;">Branch</span>
+          <span style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <span style="{{ sel.branchStyle }}">
+              <svg class="ic" width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><line x1="6" x2="6" y1="3" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>
+              {{ sel.branch }}
+            </span>
+            <sc-if value="{{ sel.isMerge }}" hint-placeholder-val="{{ false }}">
+              <span style="display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #a1a1aa; border: 1px solid rgba(255,255,255,0.1);">merge commit</span>
+            </sc-if>
+          </span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8b96;">Parents</span>
+          <sc-if value="{{ sel.hasParents }}" hint-placeholder-val="{{ true }}">
+            <span style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <sc-for list="{{ sel.parentItems }}" as="p" hint-placeholder-count="2">
+                <button class="btn-reset chip" onClick="{{ p.select }}" style="display: inline-flex; align-items: center; gap: 6px; min-height: 22px; padding: 0 7px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: #a1a1aa; font-size: 11px;">
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: {{ p.color }};"></span>
+                  {{ p.id }}
+                </button>
+              </sc-for>
+            </span>
+          </sc-if>
+          <sc-if value="{{ sel.noParents }}" hint-placeholder-val="{{ false }}">
+            <span style="color: #8b8b96; font-style: italic;">Initial commit</span>
+          </sc-if>
+        </div>
+      </div>
+    </aside>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"nodeStyle":{"editor":"enum","options":["avatar","dot"],"default":"avatar","section":"Graph"},"rowHeight":{"editor":"range","default":28,"min":22,"max":44,"step":2,"unit":"px","section":"Graph"},"refsWidth":{"editor":"range","default":160,"min":100,"max":280,"step":10,"unit":"px","section":"Graph"},"graphWidth":{"editor":"range","default":240,"min":80,"max":520,"step":20,"unit":"px","section":"Graph"},"laneWidth":{"editor":"range","default":24,"min":12,"max":36,"step":2,"unit":"px","section":"Graph"},"$preview":{"width":1440,"height":900}}'>
+var COLORS = ['#2dd4bf', '#e879f9', '#fbbf24', '#38bdf8', '#a78bfa'];
+var BG = '#0d0d12';
+var HEAD_BRANCH = 'main';
+var BRANCHES = [
+  { name: 'main', track: 0, tip: 'a1b2c3d' },
+  { name: 'feature/auth', track: 1, tip: 'b3c4d5e' },
+  { name: 'hotfix/db-pool', track: 2, tip: 'g7h8i9j' },
+  { name: 'feature/ui-refresh', track: 3, tip: 'o5p6q7r' }
+];
+var COMMITS = [
+  { id: 'a1b2c3d', message: 'Merge pull request #42 from feature/auth', body: 'feat: JWT auth for the API', author: 'Alice Smith', date: '10 mins ago', branch: 'main', track: 0, parents: ['f9e8d7c', 'b3c4d5e'] },
+  { id: 'f9e8d7c', message: 'chore: update dependencies and run audit', body: 'Bumps next, react and zod to latest minors. pnpm audit is clean.', author: 'Bob Jones', date: '1 hour ago', branch: 'main', track: 0, parents: ['e5f6g7h'] },
+  { id: 'b3c4d5e', message: 'feat: implement JWT validation logic', body: 'Validates signature, expiry and audience; rejects tokens without a kid header.', author: 'Alice Smith', date: '2 hours ago', branch: 'feature/auth', track: 1, parents: ['d1e2f3g'] },
+  { id: 'd1e2f3g', message: 'chore: setup authentication boilerplate', body: '', author: 'Alice Smith', date: '3 hours ago', branch: 'feature/auth', track: 1, parents: ['h8i9j0k'] },
+  { id: 'e5f6g7h', message: 'Merge branch hotfix/db-pool into main', body: '', author: 'Charlie Brown', date: '1 day ago', branch: 'main', track: 0, parents: ['h8i9j0k', 'g7h8i9j'] },
+  { id: 'h8i9j0k', message: 'refactor: user service endpoints', body: 'Splits /users into list, detail and settings handlers. No behaviour change.', author: 'Bob Jones', date: '1 day ago', branch: 'main', track: 0, parents: ['j0k1l2m'] },
+  { id: 'g7h8i9j', message: 'fix: connection pooling exhaustion', body: 'Releases clients in a finally block; pool max raised from 10 to 20.', author: 'Charlie Brown', date: '1 day ago', branch: 'hotfix/db-pool', track: 2, parents: ['j0k1l2m'] },
+  { id: 'j0k1l2m', message: 'Release v1.2.0 production', body: '', author: 'Alice Smith', date: '2 days ago', branch: 'main', track: 0, tags: ['v1.2.0'], parents: ['m3n4o5p'] },
+  { id: 'm3n4o5p', message: 'Merge feature/ui-refresh to main', body: '', author: 'David Lee', date: '3 days ago', branch: 'main', track: 0, parents: ['p6q7r8s', 'o5p6q7r'] },
+  { id: 'p6q7r8s', message: 'docs: prepare release notes for v1.2', body: 'Covers the navigation redesign and the deprecation of the legacy theme.', author: 'Alice Smith', date: '3 days ago', branch: 'main', track: 0, parents: ['s9t0u1v'] },
+  { id: 'o5p6q7r', message: 'feat: redesign main navigation bar', body: 'Collapsible groups, keyboard navigation and a compact mode under 900px.', author: 'David Lee', date: '4 days ago', branch: 'feature/ui-refresh', track: 3, parents: ['s9t0u1v'] },
+  { id: 's9t0u1v', message: 'Initial stable release', body: '', author: 'Alice Smith', date: '1 week ago', branch: 'main', track: 0, tags: ['v1.0.0'], parents: [] }
+];
+
+// CI runs per commit (GitHub Actions style)
+var CHECKS = {
+  a1b2c3d: [
+    { name: 'CI / build & test', event: 'push', status: 'running', jobs: '4/6 jobs', duration: '1m 42s', progress: 64 },
+    { name: 'Deploy / production', event: 'push', status: 'queued', jobs: '0/2 jobs', duration: 'waiting for CI' }
+  ],
+  f9e8d7c: [
+    { name: 'CI / build & test', event: 'push', status: 'success', jobs: '6/6 jobs', duration: '3m 10s' },
+    { name: 'Security audit', event: 'push', status: 'success', jobs: '1/1 jobs', duration: '48s' }
+  ],
+  b3c4d5e: [
+    { name: 'CI / build & test', event: 'pull_request', status: 'success', jobs: '6/6 jobs', duration: '3m 02s' },
+    { name: 'Preview deploy', event: 'pull_request', status: 'success', jobs: '1/1 jobs', duration: '1m 20s' }
+  ],
+  d1e2f3g: [
+    { name: 'CI / build & test', event: 'pull_request', status: 'failure', jobs: 'lint failed · 5/6 jobs', duration: '1m 05s' }
+  ],
+  e5f6g7h: [
+    { name: 'CI / build & test', event: 'push', status: 'success', jobs: '6/6 jobs', duration: '3m 14s' },
+    { name: 'Deploy / production', event: 'push', status: 'success', jobs: '2/2 jobs', duration: '2m 40s' }
+  ],
+  h8i9j0k: [{ name: 'CI / build & test', event: 'push', status: 'success', jobs: '6/6 jobs', duration: '3m 01s' }],
+  g7h8i9j: [{ name: 'CI / build & test', event: 'pull_request', status: 'success', jobs: '6/6 jobs', duration: '2m 55s' }],
+  j0k1l2m: [
+    { name: 'CI / build & test', event: 'push', status: 'success', jobs: '6/6 jobs', duration: '3m 08s' },
+    { name: 'Release / publish package', event: 'release', status: 'success', jobs: '1/1 jobs', duration: '1m 12s' },
+    { name: 'Deploy / production', event: 'push', status: 'success', jobs: '2/2 jobs', duration: '2m 37s' }
+  ],
+  m3n4o5p: [{ name: 'CI / build & test', event: 'push', status: 'success', jobs: '6/6 jobs', duration: '2m 58s' }],
+  p6q7r8s: [{ name: 'CI / build & test', event: 'push', status: 'skipped', jobs: 'docs-only change', duration: '0s' }],
+  o5p6q7r: [
+    { name: 'CI / build & test', event: 'pull_request', status: 'success', jobs: '6/6 jobs', duration: '3m 20s' },
+    { name: 'Visual regression', event: 'pull_request', status: 'failure', jobs: '12 snapshots changed', duration: '4m 31s' }
+  ],
+  s9t0u1v: [
+    { name: 'CI / build & test', event: 'push', status: 'success', jobs: '6/6 jobs', duration: '2m 41s' },
+    { name: 'Release / publish package', event: 'release', status: 'success', jobs: '1/1 jobs', duration: '1m 09s' }
+  ]
+};
+var CI = {
+  success: { color: '#4ade80', label: 'passed', cls: '', d: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18 M8.5 12.5l2.5 2.5 4.5-5' },
+  failure: { color: '#f87171', label: 'failed', cls: '', d: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18 M9.5 9.5l5 5 M14.5 9.5l-5 5' },
+  running: { color: '#fbbf24', label: 'running', cls: 'spin', d: 'M21 12a9 9 0 1 1-6.22-8.56' },
+  queued: { color: '#a1a1aa', label: 'queued', cls: '', d: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18 M12 8v4l2.5 1.5' },
+  skipped: { color: '#8b8b96', label: 'skipped', cls: '', d: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18 M6 6l12 12' }
+};
+function aggStatus(runs) {
+  if (!runs.length) return 'skipped';
+  var st = runs.map(function (r) { return r.status; });
+  if (st.indexOf('failure') >= 0) return 'failure';
+  if (st.indexOf('running') >= 0) return 'running';
+  if (st.indexOf('queued') >= 0) return 'queued';
+  if (st.every(function (x) { return x === 'skipped'; })) return 'skipped';
+  return 'success';
+}
+function ciView(status) {
+  var m = CI[status];
+  return { d: m.d, color: m.color, cls: m.cls, aria: 'Checks ' + m.label, label: m.label };
+}
+
+function initialsOf(name) { return name.split(' ').map(function (n) { return n[0]; }).join('').toUpperCase(); }
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { selected: 'a1b2c3d', hovered: null, detailsOpen: true, branchesOpen: true, tagsOpen: true, copied: false, showMeta: true };
+  }
+
+  select(id) { this.setState({ selected: id, detailsOpen: true }); }
+
+  renderVals() {
+    var self = this;
+    var s = this.state;
+    var RH = this.props.rowHeight ?? 28;
+    var RW = this.props.refsWidth ?? 160;
+    var GW = this.props.graphWidth ?? 240;
+    var TW = this.props.laneWidth ?? 24;
+    var avatars = (this.props.nodeStyle ?? 'avatar') === 'avatar';
+    var OX = 16;
+    var meta = s.showMeta;
+    var cols = RW + 'px ' + GW + 'px minmax(240px, 1fr)' + (meta ? ' 76px 136px 112px' : '');
+    var X = function (t) { return RW + OX + t * TW; };
+    // row 0 is the WIP row, commits start at row 1
+    var Y = function (i) { return (i + 1) * RH + RH / 2; };
+    var END = RW + GW;
+    var hv = s.hovered;
+    var faded = function (t) { return hv !== null && t !== hv; };
+    var idx = {};
+    COMMITS.forEach(function (c, i) { idx[c.id] = i; });
+
+    var reruns = s.reruns || {};
+    var runsOf = function (id) {
+      return (CHECKS[id] || []).map(function (r, k) {
+        var key = id + ':' + k;
+        if (reruns[key]) return Object.assign({}, r, { status: 'running', progress: 6, duration: 'just started', jobs: 're-run · 0/6 jobs', key: key });
+        return Object.assign({}, r, { key: key });
+      });
+    };
+    var ciOf = function (id) { return ciView(aggStatus(runsOf(id))); };
+
+    var tipsByCommit = {};
+    BRANCHES.forEach(function (b) { (tipsByCommit[b.tip] = tipsByCommit[b.tip] || []).push(b); });
+
+    var avR = Math.max(5, Math.min(8, RH / 2 - 5));
+    var nodeR = function (c) {
+      if (c.parents.length > 1) return 3;
+      return avatars ? avR : 3.5;
+    };
+
+    // Lane bars: tinted strip from the node to the end of the graph column, capped in the lane colour
+    var bars = COMMITS.map(function (c, i) {
+      var x = X(c.track);
+      var isSel = s.selected === c.id;
+      return {
+        x: x, y: (i + 1) * RH + 3, w: Math.max(0, END - x), h: RH - 6, capX: END - 2,
+        color: COLORS[c.track],
+        fillOp: isSel ? 0.3 : 0.12,
+        op: faded(c.track) ? 0.25 : 1
+      };
+    });
+
+    // Connector lines from the branch/tag labels to their commit node
+    var links = [];
+    COMMITS.forEach(function (c, i) {
+      var tips = tipsByCommit[c.id];
+      if (!tips && !c.tags) return;
+      var color = tips ? COLORS[tips[0].track] : '#8b8b96';
+      var x2 = X(c.track) - nodeR(c);
+      links.push({ d: 'M 12 ' + Y(i) + ' L ' + x2 + ' ' + Y(i), color: color, op: faded(c.track) ? 0.2 : 0.9 });
+    });
+
+    // Edges: merges leave the merge node sideways then run down the branch lane;
+    // branch commits run down their own lane and curve into the parent at its row.
+    var edges = [];
+    COMMITS.forEach(function (c, i) {
+      c.parents.forEach(function (pid) {
+        var j = idx[pid];
+        if (j === undefined) return;
+        var p = COMMITS[j];
+        var x1 = X(c.track), y1 = Y(i), x2 = X(p.track), y2 = Y(j);
+        var r = Math.min(8, Math.abs(x2 - x1));
+        var d, color, lane;
+        if (x1 === x2) {
+          d = 'M ' + x1 + ' ' + y1 + ' L ' + x2 + ' ' + y2;
+          color = COLORS[c.track]; lane = c.track;
+        } else if (c.track < p.track) {
+          d = 'M ' + x1 + ' ' + y1 + ' L ' + (x2 - r) + ' ' + y1 + ' Q ' + x2 + ' ' + y1 + ' ' + x2 + ' ' + (y1 + r) + ' L ' + x2 + ' ' + y2;
+          color = COLORS[p.track]; lane = p.track;
+        } else {
+          d = 'M ' + x1 + ' ' + y1 + ' L ' + x1 + ' ' + (y2 - r) + ' Q ' + x1 + ' ' + y2 + ' ' + (x1 - r) + ' ' + y2 + ' L ' + x2 + ' ' + y2;
+          color = COLORS[c.track]; lane = c.track;
+        }
+        var isFaded = hv !== null && c.track !== hv && p.track !== hv;
+        edges.push({ d: d, color: color, op: isFaded ? 0.15 : 0.95, lane: lane });
+      });
+    });
+    edges.sort(function (a, b) { return a.lane - b.lane; });
+
+    var nodes = COMMITS.map(function (c, i) {
+      var merge = c.parents.length > 1;
+      var color = COLORS[c.track];
+      var r = nodeR(c);
+      var showFace = avatars && !merge;
+      return {
+        cx: X(c.track), cy: Y(i), color: color, r: r, ringR: r + 2.5,
+        fill: showFace ? color + '2e' : color,
+        initials: initialsOf(c.author),
+        fs: Math.round(r * 0.9 * 10) / 10,
+        textOp: showFace ? 1 : 0,
+        ringOp: s.selected === c.id ? 0.9 : 0,
+        op: faded(c.track) ? 0.2 : 1
+      };
+    });
+
+    var headCommit = BRANCHES.filter(function (b) { return b.name === HEAD_BRANCH; })[0];
+    var headIdx = idx[headCommit.tip];
+    var headTrack = COMMITS[headIdx].track;
+    var wip = {
+      cx: X(headTrack), cy: RH / 2, r: avatars ? avR - 1 : 5,
+      color: COLORS[headTrack],
+      edge: 'M ' + X(headTrack) + ' ' + (RH / 2) + ' L ' + X(headTrack) + ' ' + Y(headIdx),
+      rowStyle: 'display: grid; grid-template-columns: ' + cols + '; align-items: center; height: ' + RH + 'px; border-bottom: 1px solid rgba(255,255,255,0.04);'
+    };
+
+    var refStyle = function (color, head, tag) {
+      var bg = head ? color + '40' : (tag ? 'rgba(255,255,255,0.06)' : color + '24');
+      return 'position: relative; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 1; min-width: 0; max-width: 100%; height: 18px; box-sizing: border-box; padding: 0 6px; border-radius: 3px; font-size: 11px; font-weight: ' + (head ? 700 : 500) + ';' +
+        ' color: ' + (tag ? '#d4d4d8' : color) + '; background: linear-gradient(' + bg + ', ' + bg + '), #0d0d12; border: 1px solid ' + (tag ? 'rgba(255,255,255,0.18)' : color + '80') + ';';
+    };
+
+    var rows = COMMITS.map(function (c) {
+      var isSel = s.selected === c.id;
+      var refs = [];
+      (tipsByCommit[c.id] || []).forEach(function (b) {
+        var head = b.name === HEAD_BRANCH;
+        refs.push({ label: b.name, isHead: head, isTag: false, style: refStyle(COLORS[b.track], head, false) });
+      });
+      (c.tags || []).forEach(function (t) { refs.push({ label: t, isHead: false, isTag: true, style: refStyle('#d4d4d8', false, true) }); });
+      return {
+        id: c.id, message: c.message, body: c.body || '', author: c.author, date: c.date, refs: refs,
+        ci: ciOf(c.id),
+        pressed: isSel ? 'true' : 'false',
+        select: function () { self.select(c.id); },
+        enter: function () { self.setState({ hovered: c.track }); },
+        leave: function () { self.setState({ hovered: null }); },
+        rowStyle: 'display: grid; grid-template-columns: ' + cols + '; align-items: center; width: 100%; height: ' + RH + 'px; box-sizing: border-box; border-bottom: 1px solid rgba(255,255,255,0.04); transition: opacity .2s, background .15s;' +
+          (isSel ? ' background: rgba(255,255,255,0.06);' : '') +
+          (faded(c.track) && !isSel ? ' opacity: 0.45;' : ''),
+        msgStyle: 'flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 100%; ' + (isSel ? 'color: #ffffff; font-weight: 700;' : 'color: #e4e4e7;')
+      };
+    });
+
+    var sc = COMMITS[idx[s.selected]] || COMMITS[0];
+    var bc = COLORS[sc.track];
+    var selRuns = runsOf(sc.id);
+    var selAgg = ciView(aggStatus(selRuns));
+
+    var runningRuns = 0, failingCommits = 0, firstRunning = null, firstFailing = null;
+    COMMITS.forEach(function (c) {
+      var rs = runsOf(c.id);
+      var n = rs.filter(function (r) { return r.status === 'running' || r.status === 'queued'; }).length;
+      runningRuns += n;
+      if (n && !firstRunning) firstRunning = c.id;
+      if (aggStatus(rs) === 'failure') { failingCommits++; if (!firstFailing) firstFailing = c.id; }
+    });
+    var ciSummary = {
+      hasRunning: runningRuns > 0,
+      runningText: runningRuns + ' running',
+      goRunning: function () { if (firstRunning) self.select(firstRunning); },
+      hasFailing: failingCommits > 0,
+      failingText: failingCommits + ' failing',
+      goFailing: function () { if (firstFailing) self.select(firstFailing); }
+    };
+    var sel = {
+      id: sc.id, author: sc.author, date: sc.date, message: sc.message, body: sc.body || '', branch: sc.branch,
+      hasBody: !!sc.body,
+      ciText: selRuns.length + (selRuns.length === 1 ? ' run · ' : ' runs · ') + selAgg.label,
+      ciColor: selAgg.color,
+      runs: selRuns.map(function (r) {
+        var v = ciView(r.status);
+        var p = r.progress || 0;
+        return {
+          name: r.name, d: v.d, color: v.color, cls: v.cls, aria: r.name + ' ' + v.label,
+          meta: r.event + ' · ' + r.jobs + ' · ' + r.duration,
+          isRunning: r.status === 'running',
+          barStyle: 'height: 100%; width: ' + p + '%; background: #fbbf24; border-radius: 2px;',
+          canRerun: r.status === 'failure',
+          rerun: function () { var next = Object.assign({}, reruns); next[r.key] = true; self.setState({ reruns: next }); }
+        };
+      }),
+      initials: initialsOf(sc.author),
+      avatarStyle: 'width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: ' + bc + '2e; border: 1.5px solid ' + bc + '; font-size: 10px; font-weight: 700; color: ' + bc + '; flex-shrink: 0; box-sizing: border-box;',
+      isMerge: sc.parents.length > 1,
+      hasParents: sc.parents.length > 0,
+      noParents: sc.parents.length === 0,
+      branchStyle: 'display: inline-flex; align-items: center; gap: 5px; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; color: ' + bc + '; background: ' + bc + '1f; border: 1px solid ' + bc + '4d;',
+      parentItems: sc.parents.map(function (pid) {
+        var p = COMMITS[idx[pid]];
+        return { id: pid, color: p ? COLORS[p.track] : '#8b8b96', select: function () { self.select(pid); } };
+      })
+    };
+
+    return {
+      bars: bars,
+      links: links,
+      edges: edges,
+      nodes: nodes,
+      wip: wip,
+      rows: rows,
+      graphHeight: (COMMITS.length + 1) * RH,
+      svgWidth: END,
+      cols: cols,
+      minW: END + 240 + (meta ? 324 : 0),
+      metaHide: meta ? '' : 'display: none;',
+      metaLabel: meta ? 'Hide commit, author and date columns' : 'Show commit, author and date columns',
+      metaPressed: meta ? 'true' : 'false',
+      toggleMeta: function () { self.setState({ showMeta: !s.showMeta }); },
+      sel: sel,
+      ciSummary: ciSummary,
+      detailsOpen: s.detailsOpen,
+      closeDetails: function () { self.setState({ detailsOpen: false }); },
+      copyLabel: s.copied ? 'Copied' : 'Copy',
+      copyId: function () {
+        try { navigator.clipboard && navigator.clipboard.writeText(sc.id).catch(function () {}); } catch (e) {}
+        self.setState({ copied: true });
+        setTimeout(function () { self.setState({ copied: false }); }, 1400);
+      },
+      branchesOpen: s.branchesOpen,
+      branchesOpenStr: s.branchesOpen ? 'true' : 'false',
+      branchesChevron: s.branchesOpen ? '' : 'transform: rotate(-90deg);',
+      toggleBranches: function () { self.setState({ branchesOpen: !s.branchesOpen }); },
+      tagsOpen: s.tagsOpen,
+      tagsOpenStr: s.tagsOpen ? 'true' : 'false',
+      tagsChevron: s.tagsOpen ? '' : 'transform: rotate(-90deg);',
+      toggleTags: function () { self.setState({ tagsOpen: !s.tagsOpen }); },
+      branchItems: BRANCHES.map(function (b) {
+        return {
+          name: b.name, color: COLORS[b.track], isHead: b.name === HEAD_BRANCH, ci: ciOf(b.tip),
+          select: function () { self.select(b.tip); },
+          enter: function () { self.setState({ hovered: b.track }); },
+          leave: function () { self.setState({ hovered: null }); }
+        };
+      }),
+      tagItems: COMMITS.filter(function (c) { return c.tags; }).map(function (c) {
+        return { name: c.tags[0], short: c.id, select: function () { self.select(c.id); } };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

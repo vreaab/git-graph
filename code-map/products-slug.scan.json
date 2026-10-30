@@ -1,0 +1,177 @@
+{
+  "version": 1,
+  "repo": "my-next-app",
+  "commit": "a1b2c3f",
+  "scannedAt": "2026-10-30T09:00:00Z",
+  "routes": [
+    {
+      "id": "home", "path": "/", "kind": "page", "rendering": "static", "renderingLabel": "Static",
+      "revalidate": false, "tags": ["home"], "segmentFiles": ["layout", "page"],
+      "wrappingOrder": [
+        { "file": "app/layout.tsx", "role": "Root layout · fonts, providers", "boundary": false },
+        { "file": "page.tsx", "role": "Server page", "boundary": false }
+      ],
+      "dataSources": ["sanity"], "middleware": null, "firstLoadJsBytes": 94208
+    },
+    {
+      "id": "shop", "path": "(shop)", "kind": "group", "segmentFiles": ["layout"],
+      "wrappingOrder": [], "dataSources": [], "middleware": null, "firstLoadJsBytes": null
+    },
+    {
+      "id": "products", "path": "/products", "kind": "page", "rendering": "isr", "renderingLabel": "ISR",
+      "revalidate": 3600, "tags": ["product-list"], "segmentFiles": ["page", "loading"],
+      "wrappingOrder": [
+        { "file": "app/layout.tsx", "role": "Root layout · fonts, providers", "boundary": false },
+        { "file": "(shop)/layout.tsx", "role": "Header, cart badge", "boundary": false },
+        { "file": "loading.tsx", "role": "Suspense fallback", "boundary": true },
+        { "file": "page.tsx", "role": "Server page", "boundary": false }
+      ],
+      "dataSources": ["sanity"],
+      "middleware": { "matcher": "/products/:path*", "note": "Runs auth check before render" },
+      "firstLoadJsBytes": 98304
+    },
+    {
+      "id": "slug", "path": "/products/[slug]", "kind": "page", "rendering": "isr", "renderingLabel": "ISR · prebuilt",
+      "revalidate": 3600, "tags": ["product"], "segmentFiles": ["page", "loading", "error", "not-found"],
+      "wrappingOrder": [
+        { "file": "app/layout.tsx", "role": "Root layout · fonts, providers", "boundary": false },
+        { "file": "(shop)/layout.tsx", "role": "Header, cart badge", "boundary": false },
+        { "file": "error.tsx", "role": "Error boundary for the segment", "boundary": true },
+        { "file": "loading.tsx", "role": "Suspense fallback while streaming", "boundary": true },
+        { "file": "page.tsx", "role": "Server page · async", "boundary": false }
+      ],
+      "params": [{ "name": "slug", "type": "string", "source": "generateStaticParams" }],
+      "dataSources": ["sanity", "db"],
+      "middleware": { "matcher": "/products/:path*", "note": "Runs auth check before render" },
+      "firstLoadJsBytes": 131072
+    },
+    {
+      "id": "cart", "path": "/cart", "kind": "page", "rendering": "dynamic", "renderingLabel": "Dynamic",
+      "dynamicReason": {
+        "api": "cookies()",
+        "source": { "file": "app/(shop)/cart/page.tsx", "line": 9 },
+        "fix": "Read cookies() inside a component wrapped in <Suspense> so the rest of the page can stay static."
+      },
+      "segmentFiles": ["page", "loading"],
+      "wrappingOrder": [
+        { "file": "app/layout.tsx", "role": "Root layout · fonts, providers", "boundary": false },
+        { "file": "(shop)/layout.tsx", "role": "Header, cart badge", "boundary": false },
+        { "file": "loading.tsx", "role": "Suspense fallback", "boundary": true },
+        { "file": "page.tsx", "role": "Reads cookies() at line 9", "boundary": false }
+      ],
+      "dataSources": ["db"],
+      "middleware": { "matcher": "/cart", "note": "Runs auth check before render" },
+      "firstLoadJsBytes": 144384
+    },
+    {
+      "id": "checkout", "path": "/checkout", "kind": "page", "rendering": "dynamic", "renderingLabel": "Dynamic",
+      "dynamicReason": { "api": "searchParams", "source": { "file": "app/(shop)/checkout/page.tsx", "line": 4 } },
+      "segmentFiles": ["page", "error"],
+      "wrappingOrder": [
+        { "file": "app/layout.tsx", "role": "Root layout · fonts, providers", "boundary": false },
+        { "file": "(shop)/layout.tsx", "role": "Header, cart badge", "boundary": false },
+        { "file": "error.tsx", "role": "Error boundary", "boundary": true },
+        { "file": "page.tsx", "role": "Reads searchParams.step", "boundary": false }
+      ],
+      "dataSources": ["db", "payments"],
+      "middleware": { "matcher": "/checkout", "note": "Runs auth check before render" },
+      "firstLoadJsBytes": 120832
+    },
+    {
+      "id": "apiCheckout", "path": "/api/checkout", "kind": "route-handler", "methods": ["POST"],
+      "rendering": "dynamic", "renderingLabel": "Dynamic · Node", "segmentFiles": ["route"],
+      "wrappingOrder": [{ "file": "route.ts", "role": "POST handler", "boundary": false }],
+      "dataSources": ["db", "payments"], "middleware": null, "firstLoadJsBytes": null
+    },
+    {
+      "id": "apiRevalidate", "path": "/api/revalidate", "kind": "route-handler", "methods": ["POST"],
+      "rendering": "edge", "renderingLabel": "Edge", "segmentFiles": ["route"],
+      "wrappingOrder": [{ "file": "route.ts", "role": "POST handler · CMS webhook", "boundary": false }],
+      "dataSources": [], "middleware": null, "firstLoadJsBytes": null
+    }
+  ],
+  "graph": {
+    "nodes": [
+      { "id": "mw", "kind": "middleware", "name": "middleware.ts", "source": { "file": "middleware.ts", "line": 5 }, "routes": ["/products/[slug]"],
+        "rendering": ["Edge runtime", "matcher: '/products/:path*'"], "dataIn": [{ "fn": "session cookie", "from": "Browser", "note": "auth check" }] },
+      { "id": "layout", "kind": "layout", "name": "layout.tsx", "source": { "file": "app/(shop)/layout.tsx", "line": 1 }, "routes": ["/products/[slug]"],
+        "rendering": ["Static shell"] },
+      { "id": "icons", "kind": "unresolved", "name": "icons/*", "source": { "file": "app/(shop)/products/[slug]/page.tsx", "line": 8 }, "routes": ["/products/[slug]"],
+        "note": "Template-string import: import(`./icons/${name}`). The scanner can't tell which files it loads, so they are left out of the graph and the bundle numbers." },
+      { "id": "page", "kind": "page", "name": "page.tsx", "source": { "file": "app/(shop)/products/[slug]/page.tsx", "line": 12 }, "routes": ["/products/[slug]"],
+        "rendering": ["ISR", "revalidate: 3600", "generateStaticParams"],
+        "dataIn": [{ "fn": "params.slug", "from": "the URL", "note": "prebuilt paths" }],
+        "invalidatedBy": ["addToCart() → revalidateTag('product')"] },
+      { "id": "gallery", "kind": "server-component", "name": "ProductGallery", "source": { "file": "components/ProductGallery.tsx", "line": 6 }, "routes": ["/products/[slug]"],
+        "rendering": ["Cached with page"],
+        "dataIn": [{ "fn": "getProduct(slug)", "from": "Sanity CMS", "note": "force-cache · tag product" }],
+        "invalidatedBy": ["addToCart() → revalidateTag('product')"] },
+      { "id": "cart", "kind": "client-component", "name": "AddToCartButton", "isClientBoundary": true, "source": { "file": "components/AddToCartButton.tsx", "line": 1 }, "routes": ["/products/[slug]"],
+        "rendering": ["'use client'", "4 kB JS"], "dataIn": [{ "fn": "slug", "from": "page.tsx", "note": "prop · serializable" }] },
+      { "id": "reviews", "kind": "server-component", "name": "Reviews", "suspense": true, "source": { "file": "components/Reviews.tsx", "line": 3 }, "routes": ["/products/[slug]"],
+        "rendering": ["Streamed in <Suspense>"], "dataIn": [{ "fn": "getReviews(slug)", "from": "Postgres", "note": "no-store" }],
+        "note": "Imports @/lib/legacy, an alias missing from tsconfig. That import isn't traced." },
+      { "id": "sanity", "kind": "data-source", "name": "Sanity CMS", "source": { "file": "lib/sanity.ts", "line": 3 }, "routes": ["/products/[slug]"],
+        "invalidatedBy": ["addToCart() → revalidateTag('product')"] },
+      { "id": "action", "kind": "server-action", "name": "addToCart()", "source": { "file": "app/actions/cart.ts", "line": 7 }, "routes": ["/products/[slug]"],
+        "rendering": ["'use server'"], "dataIn": [{ "fn": "slug", "from": "AddToCartButton", "note": "form POST" }] },
+      { "id": "db", "kind": "data-source", "name": "Postgres", "source": { "file": "lib/db.ts", "line": 1 }, "routes": ["/products/[slug]"],
+        "dataIn": [{ "fn": "cart row", "from": "addToCart()", "note": "INSERT" }] }
+    ],
+    "edges": [
+      { "id": "e1", "from": "mw", "to": "layout", "kind": "request", "label": "request" },
+      { "id": "e2", "from": "layout", "to": "page", "kind": "props", "label": "props", "payload": [{ "name": "children", "type": "ReactNode" }] },
+      { "id": "e3", "from": "icons", "to": "page", "kind": "import", "label": "import" },
+      { "id": "e4", "from": "page", "to": "gallery", "kind": "props", "payload": [{ "name": "slug", "type": "string" }] },
+      { "id": "e5", "from": "page", "to": "cart", "kind": "props", "payload": [{ "name": "slug", "type": "string", "crossesBoundary": true, "serializable": true }] },
+      { "id": "e6", "from": "page", "to": "reviews", "kind": "props", "payload": [{ "name": "slug", "type": "string" }] },
+      { "id": "e7", "from": "sanity", "to": "gallery", "kind": "data-read", "label": "product", "source": { "file": "components/ProductGallery.tsx", "line": 9 } },
+      { "id": "e8", "from": "db", "to": "reviews", "kind": "data-read", "label": "reviews", "source": { "file": "components/Reviews.tsx", "line": 7 } },
+      { "id": "e9", "from": "cart", "to": "action", "kind": "data-write", "label": "slug", "payload": [{ "name": "slug", "type": "string" }] },
+      { "id": "e10", "from": "action", "to": "db", "kind": "data-write", "label": "cart row", "source": { "file": "app/actions/cart.ts", "line": 11 } },
+      { "id": "e11", "from": "action", "to": "sanity", "kind": "invalidate", "label": "invalidates", "payload": [{ "name": "product", "type": "tag" }], "source": { "file": "app/actions/cart.ts", "line": 14 } }
+    ]
+  },
+  "bundles": [
+    {
+      "route": "/products/[slug]", "firstLoadBytes": 131072, "sharedBytes": 89088, "routeBytes": 41984,
+      "budgetBytes": 153600, "deltaVsBaseBytes": 22528, "baseRef": "main",
+      "modules": [
+        { "id": "react", "name": "react-dom", "bytes": 46080, "group": "shared", "kind": "framework",
+          "importChain": [{ "name": "every route", "kind": "framework", "note": "loaded with the Next.js app" }, { "name": "react-dom", "kind": "framework", "note": "45 kB · shared framework" }],
+          "okNote": "Shared by every route and cached after the first visit. Nothing to change here." },
+        { "id": "next", "name": "next/client runtime", "bytes": 32768, "group": "shared", "kind": "framework",
+          "importChain": [{ "name": "every route", "kind": "framework", "note": "loaded with the Next.js app" }, { "name": "next/client runtime", "kind": "framework", "note": "32 kB · router and RSC client" }],
+          "okNote": "Shared by every route and cached after the first visit. Nothing to change here." },
+        { "id": "shared", "name": "shared chunks", "bytes": 10240, "group": "shared", "kind": "chunk",
+          "importChain": [{ "name": "2+ routes", "kind": "framework", "note": "code they have in common" }, { "name": "shared chunks", "kind": "framework", "note": "10 kB · split out by the bundler" }],
+          "okNote": "Already split out and cached across routes." },
+        { "id": "framer", "name": "framer-motion", "bytes": 22528, "group": "route", "kind": "library", "isNewSinceBase": true,
+          "importChain": [
+            { "name": "page.tsx", "kind": "server", "note": "Server page — ships no JS" },
+            { "name": "AddToCartButton.tsx", "kind": "client", "note": "'use client' — client bundle starts here" },
+            { "name": "CartToast.tsx", "kind": "client", "note": "imported statically" },
+            { "name": "framer-motion", "kind": "library", "note": "22 kB · new in this branch" }
+          ],
+          "suggestions": [{ "title": "Lazy-load CartToast", "savingBytes": 25600, "body": "It only shows after a click. Load it with next/dynamic so CartToast and framer-motion leave first-load JS.", "source": { "file": "components/AddToCartButton.tsx", "line": 3 } }] },
+        { "id": "zod", "name": "zod", "bytes": 9216, "group": "route", "kind": "library",
+          "importChain": [
+            { "name": "page.tsx", "kind": "server", "note": "Server page — ships no JS" },
+            { "name": "AddToCartButton.tsx", "kind": "client", "note": "'use client' — client bundle starts here" },
+            { "name": "zod", "kind": "library", "note": "9 kB · imported at line 18" }
+          ],
+          "suggestions": [{ "title": "Validate on the server", "savingBytes": 9216, "body": "zod is only used to check the form. Move the check into the addToCart() server action.", "source": { "file": "components/AddToCartButton.tsx", "line": 18 } }] },
+        { "id": "addToCart", "name": "AddToCartButton.tsx", "bytes": 4096, "group": "route", "kind": "client-component",
+          "importChain": [{ "name": "page.tsx", "kind": "server", "note": "Server page — ships no JS" }, { "name": "AddToCartButton.tsx", "kind": "client", "note": "4 kB" }] },
+        { "id": "cartToast", "name": "CartToast.tsx", "bytes": 3072, "group": "route", "kind": "client-component",
+          "importChain": [{ "name": "AddToCartButton.tsx", "kind": "client", "note": "'use client'" }, { "name": "CartToast.tsx", "kind": "client", "note": "3 kB" }] },
+        { "id": "pageChunk", "name": "page chunk", "bytes": 3072, "group": "route", "kind": "chunk",
+          "importChain": [{ "name": "page chunk", "kind": "framework", "note": "3 kB · route glue" }] }
+      ]
+    }
+  ],
+  "diagnostics": [
+    { "severity": "warning", "code": "dynamic-import", "message": "Template-string import can't be traced", "source": { "file": "app/(shop)/products/[slug]/page.tsx", "line": 8 }, "nodeId": "icons" },
+    { "severity": "warning", "code": "missing-alias", "message": "@/lib/legacy is not in tsconfig paths", "source": { "file": "components/Reviews.tsx", "line": 3 }, "nodeId": "reviews" }
+  ]
+}
